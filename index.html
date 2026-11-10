@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walter Conceição Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one terminal session. A tab bar picks a file, the screen shows
+   `cat <file>` and its plain-text output, then a live prompt. No cards, no boxes.
+   Single dark theme by choice. */
+:root{
+  color-scheme: dark;
+  --bg:#141615;
+  --bar:#0f1110;
+  --line:#2a2f2c;
+  --text:#c5cdc3;
+  --dim:#76817a;
+  --green:#5dfc8a;
+  --amber:#ffb454;
+  --font:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--font);font-size:14px;line-height:1.7;
+  -webkit-text-size-adjust:100%;
+}
+a{color:var(--green);text-decoration:underline;text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+p,h1,h2,ul,dl,dd{margin:0;padding:0}
+ul{list-style:none}
+
+/* tab bar */
+.tabs{position:sticky;top:0;z-index:5;background:var(--bar);border-bottom:1px solid var(--line)}
+.tabs-in{max-width:760px;margin:0 auto;display:flex;overflow-x:auto;scrollbar-width:none}
+.tabs-in::-webkit-scrollbar{display:none}
+.tab{
+  padding:10px 14px;font-size:13px;white-space:nowrap;color:var(--dim);
+  text-decoration:none;border-bottom:2px solid transparent;
+}
+.tab{transition:color .18s,border-color .18s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--green);border-bottom-color:var(--green)}
+
+/* screen */
+.screen{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+.ps{color:var(--green)}
+.cmdline{margin-bottom:14px;word-break:break-word}
+.view{display:none}
+.view.on{display:block}
+.view > * + *{margin-top:22px}
+
+h1{font-size:18px;font-weight:600;color:var(--green);line-height:1.35;text-wrap:balance}
+h2{font-size:14px;font-weight:400;color:var(--dim)}
+h2::before{content:"# "}
+.sub{color:var(--amber)}
+.lead{max-width:62ch}
+.g{color:var(--green)}.a{color:var(--amber)}.d{color:var(--dim)}
+
+/* key / value rows, like aligned terminal output */
+.kv{display:grid;grid-template-columns:10ch minmax(0,1fr);column-gap:2ch;row-gap:2px;margin-top:6px}
+.kv dt{color:var(--amber)}
+.kv dd{overflow-wrap:anywhere}
+
+.list{margin-top:6px}
+.list li{display:grid;grid-template-columns:2ch minmax(0,1fr);column-gap:1ch}
+
+.btn{
+  font:inherit;background:none;border:0;padding:0;margin-left:1ch;cursor:pointer;
+  color:var(--green);white-space:nowrap;
+}
+.btn::before{content:"["}.btn::after{content:"]"}
+.btn:hover{color:var(--amber)}
+
+/* projects */
+.proj .head{display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:2ch}
+.proj .id{color:var(--amber)}
+.proj h1{font-size:15px;color:var(--text);margin:2px 0 6px}
+.proj .kv{grid-template-columns:11ch minmax(0,1fr)}
+.proj .kv dt{color:var(--dim)}
+.proj .kv dd.g{color:var(--green)}
+.other li{display:grid;grid-template-columns:22ch minmax(0,1fr);column-gap:2ch}
+.other b{font-weight:400;color:var(--amber)}
+
+/* history */
+.job .when{color:var(--dim)}
+.job b{font-weight:500;color:var(--text)}
+
+/* live prompt */
+#session{margin-top:22px;white-space:pre-wrap;word-break:break-word}
+#session .o{color:var(--dim)}
+.prompt{display:flex;align-items:center;gap:1ch;margin-top:18px}
+.prompt label{white-space:nowrap}
+.prompt input{
+  flex:1;min-width:0;background:transparent;border:0;color:var(--text);
+  font-family:var(--font);font-size:16px;padding:2px 0;caret-color:var(--green);
+}
+.prompt input:focus{outline:none}
+.prompt input::placeholder{color:#465049}
+.try{margin-top:8px;color:var(--dim);font-size:13px;display:flex;flex-wrap:wrap;gap:4px 2ch}
+.try button{font:inherit;background:none;border:0;padding:0;color:var(--dim);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.try button:hover{color:var(--green)}
+
+/* typing */
+.w-hide{visibility:hidden}
+.cur{display:inline-block;width:.6em;height:1.15em;margin-left:1px;background:var(--green);vertical-align:text-bottom;box-shadow:0 0 8px rgba(93,252,138,.55)}
+.idle{animation:blink 1.05s steps(1) infinite}
+.prompt:focus-within .idle{display:none}
+@keyframes blink{50%{opacity:0}}
+.btn.flash{color:var(--amber);animation:flash .5s ease-out}
+@keyframes flash{from{text-shadow:0 0 12px var(--amber)}to{text-shadow:none}}
+#session .o{animation:rise .25s ease-out}
+@keyframes rise{from{opacity:.3}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.idle,.btn.flash,#session .o{animation:none}.tab{transition:none}}
+
+@media (max-width:560px){
+  .proj .kv{grid-template-columns:minmax(0,1fr)}
+  .proj .kv dt{margin-top:6px}
+  .other li{grid-template-columns:minmax(0,1fr)}
+  .other li + li{margin-top:6px}
+}
+</style>
+</head>
+<body>
+
+<nav class="tabs" aria-label="Files">
+  <div class="tabs-in">
+    <a class="tab active" href="#about" data-v="about">about.md</a>
+    <a class="tab" href="#projects" data-v="projects">projects.ts</a>
+    <a class="tab" href="#history" data-v="history">history.log</a>
+    <a class="tab" href="#contact" data-v="contact">contact.sh</a>
+  </div>
+</nav>
+
+<main class="screen">
+  <div class="cmdline"><span class="ps">walter@maputo:~$</span> <span id="cmd">cat about.md</span></div>
+
+  <!-- about -->
+  <section class="view on" id="v-about">
+    <div>
+      <h1>Walter Shaquil da Conceição</h1>
+      <p class="sub">Software &amp; DevOps Engineer · Maputo</p>
+    </div>
+    <p class="lead">I build mobile apps and backends, then run the infrastructure under them.</p>
+
+    <div>
+      <h2>now</h2>
+      <dl class="kv">
+        <dt>role</dt><dd>Developer at Access Bank Mozambique, since Aug 2026</dd>
+        <dt>also</dt><dd>platform infrastructure, client support, internal tools</dd>
+        <dt>mail</dt><dd>waltershaquil@gmail.com<button type="button" class="btn" data-copy>copy</button></dd>
+      </dl>
+    </div>
+
+    <div>
+      <h2>stack</h2>
+      <dl class="kv">
+        <dt>typescript</dt><dd>react native · node.js</dd>
+        <dt>java</dt><dd>spring boot · mysql</dd>
+        <dt>platform</dt><dd>kubernetes · docker · aws · ci/cd</dd>
+        <dt>mobile</dt><dd>flutter · dart</dd>
+      </dl>
+    </div>
+
+    <div>
+      <h2>recent work <span class="d">(+ done, ~ in progress)</span></h2>
+      <ul class="list">
+        <li><span class="g">+</span><span>UAT-validated fixes go to prod one by one</span></li>
+        <li><span class="g">+</span><span>cluster storage pressure under 50%</span></li>
+        <li><span class="a">~</span><span>high-availability and DR design</span></li>
+        <li><span class="a">~</span><span>in-house customer migration mapping</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- projects -->
+  <section class="view" id="v-projects">
+    <article class="proj">
+      <div class="head"><span class="id">01 banking-cluster</span><span class="d">Access Bank · 2026</span></div>
+      <h1>Reliability and storage for a banking platform cluster</h1>
+      <dl class="kv">
+        <dt>constraint</dt><dd>The cluster needed high availability, and storage was under pressure with a 3 TB purchase already requested.</dd>
+        <dt>fix</dt><dd>Cleared unused volumes. Wrote the high-availability target design with disaster recovery and two rollout paths.</dd>
+        <dt>impact</dt><dd class="g">storage pressure under 50% · 3 TB purchase avoided · HA design in review</dd>
+        <dt>built with</dt><dd class="d">kubernetes · persistent storage</dd>
+      </dl>
+    </article>
+
+    <article class="proj">
+      <div class="head"><span class="id">02 card-api</span><span class="d">Access Bank · 2026</span></div>
+      <h1>Digital business card and product booklet backend</h1>
+      <dl class="kv">
+        <dt>constraint</dt><dd>Internal servers only, no cloud services, and no passwords held by the system.</dd>
+        <dt>fix</dt><dd>Spring Boot with explicit SQL. Login through the company directory. Rendered cards saved as files, with only the path in the database.</dd>
+        <dt>impact</dt><dd class="g">0 cloud spend · 0 passwords stored · no base64 blobs in rows</dd>
+        <dt>built with</dt><dd class="d">java · spring boot · mysql</dd>
+      </dl>
+    </article>
+
+    <article class="proj">
+      <div class="head"><span class="id">03 asset-monitor-app</span><span class="d">Mobile</span></div>
+      <h1>Offline-first asset monitoring app</h1>
+      <dl class="kv">
+        <dt>constraint</dt><dd>Field users on unstable networks, and releases done by hand.</dd>
+        <dt>fix</dt><dd>Local SQLite store with a sync queue and conflict resolution. Fastlane and GitHub Actions build, sign and ship.</dd>
+        <dt>impact</dt><dd class="g">release in 1 command · Android and iOS from one codebase</dd>
+        <dt>built with</dt><dd class="d">typescript · react native</dd>
+      </dl>
+    </article>
+
+    <div>
+      <h2>ls other/</h2>
+      <ul class="other list">
+        <li><b>customer-migration</b><span>customers moved to a new platform, mapped in-house</span></li>
+        <li><b>internal-workflows</b><span>department forms rebuilt on a low-code platform</span></li>
+        <li><b>marketplace-app</b><span>mobile-money checkout, webhook-confirmed</span></li>
+        <li><b>minesweeper</b><span>Flutter, chain reveal at 60 fps</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- history -->
+  <section class="view" id="v-history">
+    <div class="job"><p class="when">Aug 2026 – now</p><p><b>Access Bank Mozambique</b> · Developer</p><p class="d">Development, plus platform infrastructure, client support and internal tools</p></div>
+    <div class="job"><p class="when">May 2026 – now</p><p><b>Youngsan Consortium</b> · DevOps Engineer &amp; Systems Developer</p><p class="d">In-house tools, CI/CD, AWS</p></div>
+    <div class="job"><p class="when">Sep 2025 – Mar 2026</p><p><b>Bolsa de Valores de Moçambique</b> · Systems Developer</p><p class="d">Institutional systems, payment integrations, access control</p></div>
+    <div class="job"><p class="when">Mar 2025 – Jul 2025</p><p><b>LG Transport</b> · IT Intern</p><p class="d">Fleet devices, networks, cloud backups</p></div>
+    <div>
+      <h2>education</h2>
+      <ul class="list">
+        <li><span class="g">+</span><span>BSc Computer &amp; Telecommunications Engineering, ISUTC, 2025</span></li>
+        <li><span class="g">+</span><span>Google Cybersecurity Professional Certificate, 2025</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- contact -->
+  <section class="view" id="v-contact">
+    <dl class="kv">
+      <dt>email</dt><dd>waltershaquil@gmail.com<button type="button" class="btn" data-copy>copy</button></dd>
+      <dt>location</dt><dd>Maputo, Mozambique</dd>
+      <dt>speaks</dt><dd>Portuguese, English</dd>
+      <dt>open to</dt><dd>mobile, backend and platform work</dd>
+    </dl>
+  </section>
+
+  <div id="session" role="log" aria-live="polite"></div>
+
+  <div id="bottom">
+  <form class="prompt" id="pform" autocomplete="off">
+    <label class="ps" for="pin">walter@maputo:~$</label><span class="cur idle" aria-hidden="true"></span>
+    <input id="pin" name="pin" type="text" placeholder="help" autocapitalize="off" autocorrect="off" spellcheck="false">
+  </form>
+  <div class="try" id="try">
+    <span>try:</span>
+    <button type="button" data-c="projects">projects</button>
+    <button type="button" data-c="history">history</button>
+    <button type="button" data-c="contact">contact</button>
+    <button type="button" data-c="copy">copy</button>
+  </div>
+  </div>
+</main>
+
+<script>
+(function(){
+  var EMAIL="waltershaquil@gmail.com";
+  var FILES={about:"about.md",projects:"projects.ts",history:"history.log",contact:"contact.sh"};
+  var cmd=document.getElementById("cmd"), cmdline=cmd.parentNode;
+  var session=document.getElementById("session"), input=document.getElementById("pin");
+  var bottom=document.getElementById("bottom"), main=document.querySelector("main");
+  var tabs=[].slice.call(document.querySelectorAll(".tab"));
+  var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var job=null, busy=false;
+  var cur=document.createElement("span");cur.className="cur";cur.setAttribute("aria-hidden","true");
+
+  /* Type a view: first the command, then every text node in order. */
+  function typeView(text,view){
+    var els=view.querySelectorAll("*"), items=[], total=0, i, n;
+    for(i=0;i<els.length;i++)els[i].classList.add("w-hide");
+    var w=document.createTreeWalker(view,NodeFilter.SHOW_TEXT);
+    while((n=w.nextNode())){
+      if(n.nodeValue.trim()){items.push({n:n,t:n.nodeValue});total+=n.nodeValue.length;n.nodeValue=""}
+    }
+    var per=34, cmdDur=text.length*per, gap=200;
+    var dur=Math.min(3400,Math.max(1100,total*2.8));
+    var start=null, raf=0, done=false, idx=0, acc=0;
+    cmd.textContent="";cmdline.appendChild(cur);
+    bottom.classList.add("w-hide");
+
+    function unhide(node){var p=node.parentNode;while(p&&p!==view){p.classList.remove("w-hide");p=p.parentNode}}
+    function finish(){
+      if(done)return;done=true;cancelAnimationFrame(raf);
+      cmd.textContent=text;
+      items.forEach(function(it){it.n.nodeValue=it.t});
+      for(var j=0;j<els.length;j++)els[j].classList.remove("w-hide");
+      if(cur.parentNode)cur.parentNode.removeChild(cur);
+      bottom.classList.remove("w-hide");
+      job=null;
+    }
+    function frame(ts){
+      if(done)return;
+      if(start===null)start=ts;
+      var t=ts-start;
+      if(t<cmdDur+gap){
+        cmd.textContent=text.slice(0,Math.min(text.length,Math.ceil(t/per)));
+      }else{
+        cmd.textContent=text;
+        var target=Math.floor(total*Math.min(1,(t-cmdDur-gap)/dur));
+        while(idx<items.length){
+          var it=items[idx], k=target-acc;
+          if(k<=0)break;
+          unhide(it.n);
+          if(k>=it.t.length){it.n.nodeValue=it.t;acc+=it.t.length;idx++}
+          else{it.n.nodeValue=it.t.slice(0,k);break}
+        }
+        if(idx>=items.length){finish();return}
+        var c=items[idx].n;
+        if(c.nodeValue)c.parentNode.insertBefore(cur,c.nextSibling);
+      }
+      raf=requestAnimationFrame(frame);
+    }
+    raf=requestAnimationFrame(frame);
+    return {finish:finish};
+  }
+
+  function show(name){
+    if(!FILES[name])name="about";
+    if(job)job.finish();
+    tabs.forEach(function(t){t.classList.toggle("active",t.getAttribute("data-v")===name)});
+    var views=document.querySelectorAll(".view"), view=document.getElementById("v-"+name);
+    for(var i=0;i<views.length;i++)views[i].classList.toggle("on",views[i]===view);
+    session.textContent="";
+    var text="cat "+FILES[name];
+    if(reduce){cmd.textContent=text;return}
+    window.scrollTo(0,0);
+    job=typeView(text,view);
+  }
+
+  /* Session lines under the file output. Replies are typed out. */
+  function say(text,isCmd){
+    var d=document.createElement("div");
+    session.appendChild(d);
+    if(isCmd){
+      var p=document.createElement("span");p.className="ps";p.textContent="walter@maputo:~$ ";
+      d.appendChild(p);d.appendChild(document.createTextNode(text));return;
+    }
+    d.className="o";
+    if(reduce){d.textContent=text;return}
+    var i=0, t=setInterval(function(){
+      i+=2;d.textContent=text.slice(0,i);
+      if(i>=text.length)clearInterval(t);
+    },16);
+  }
+
+  function copy(done){
+    try{
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(EMAIL).then(function(){done(true)},function(){done(false)})}
+      else done(false);
+    }catch(e){done(false)}
+  }
+
+  function go(name){
+    if(location.hash==="#"+name)show(name); else location.hash=name;
+  }
+
+  function run(raw){
+    var c=raw.trim().toLowerCase().replace(/^cat\s+/,"").replace(/\.(md|ts|log|sh)$/,"");
+    if(!c)return;
+    if(FILES[c]){go(c);return}
+    if(c==="clear"){session.textContent="";return}
+    say(raw.trim(),true);
+    if(c==="help"||c==="ls")say("about  projects  history  contact  copy  clear");
+    else if(c==="copy"||c==="email")copy(function(ok){say(ok?"copied "+EMAIL:EMAIL+" (copy is blocked here, select it instead)")});
+    else if(c==="whoami")say("walter, software & devops engineer");
+    else say("command not found: "+c+". try help");
+  }
+
+  /* A tapped shortcut is typed into the prompt before it runs. */
+  function typeAndRun(c,viaCopyClick){
+    if(busy)return;
+    if(reduce){run(c);return}
+    busy=true;input.value="";
+    var i=0, t=setInterval(function(){
+      input.value=c.slice(0,++i);
+      if(i>=c.length){
+        clearInterval(t);
+        setTimeout(function(){input.value="";busy=false;run(c)},220);
+      }
+    },45);
+  }
+
+  document.getElementById("pform").addEventListener("submit",function(e){e.preventDefault();run(input.value);input.value=""});
+  document.getElementById("try").addEventListener("click",function(e){
+    var b=e.target.closest("[data-c]");if(!b)return;
+    var c=b.getAttribute("data-c");
+    if(c==="copy"){
+      /* copy must happen inside the tap itself, so do it now and type the reply */
+      say("copy",true);
+      copy(function(ok){say(ok?"copied "+EMAIL:EMAIL+" (copy is blocked here, select it instead)")});
+    }else typeAndRun(c);
+  });
+  document.addEventListener("click",function(e){
+    var b=e.target.closest("[data-copy]");if(!b)return;
+    copy(function(ok){
+      b.textContent=ok?"copied":"select text";b.classList.add("flash");
+      setTimeout(function(){b.textContent="copy";b.classList.remove("flash")},1600);
+    });
+  });
+  /* Tap or press a key to skip the typing. */
+  main.addEventListener("pointerdown",function(){if(job)job.finish()});
+  document.addEventListener("keydown",function(){if(job)job.finish()});
+  window.addEventListener("hashchange",function(){show(location.hash.slice(1))});
+  show(location.hash.slice(1)||"about");
+})();
+</script>
+</body>
+</html>
